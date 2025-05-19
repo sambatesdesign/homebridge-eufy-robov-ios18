@@ -10,6 +10,7 @@ import {
   CharacteristicGetCallback,
 } from 'homebridge';
 import TuyAPI from 'tuyapi';
+import { startPolling } from './poller';
 
 let hap: HAP;
 
@@ -18,16 +19,13 @@ export = (api: API) => {
   api.registerAccessory('homebridge-eufy-minimal', 'EufyRoboVac', EufyRoboVacAccessory);
 };
 
-function sleep(ms: number) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
 class EufyRoboVacAccessory implements AccessoryPlugin {
   private readonly log: Logging;
   private readonly name: string;
   private readonly config: { id: string; key: string; ip?: string };
   private readonly service: Service;
   private readonly informationService: Service;
+  private currentState: boolean = false; // 👈 store current cleaning state
 
   constructor(log: Logging, config: AccessoryConfig) {
     this.log = log;
@@ -49,11 +47,24 @@ class EufyRoboVacAccessory implements AccessoryPlugin {
       .setCharacteristic(hap.Characteristic.Model, 'RoboVac');
 
     this.log.info(`${this.name} accessory created.`);
+
+    // ✅ Start polling and sync internal state
+    startPolling(
+      this.config,
+      this.log,
+      (newState: boolean) => {
+        this.log.warn(`🔁 Updating switch state to: ${newState}`);
+        this.service.updateCharacteristic(hap.Characteristic.On, newState);
+      },
+      (state: boolean) => {
+        this.currentState = state;
+      }
+    );
   }
 
   async handleGetActive(callback: CharacteristicGetCallback) {
     this.log.warn('handleGetActive called');
-    callback(null, hap.Characteristic.Active.INACTIVE);
+    callback(null, this.currentState); // ✅ return real state
   }
 
   async handleSetActive(value: CharacteristicValue, callback: CharacteristicSetCallback) {
