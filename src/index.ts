@@ -18,16 +18,13 @@ export = (api: API) => {
   api.registerAccessory('homebridge-eufy-minimal', 'EufyRoboVac', EufyRoboVacAccessory);
 };
 
-function sleep(ms: number) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
 class EufyRoboVacAccessory implements AccessoryPlugin {
   private readonly log: Logging;
   private readonly name: string;
   private readonly config: { id: string; key: string; ip?: string };
   private readonly service: Service;
   private readonly informationService: Service;
+  private currentState: boolean = false;
 
   constructor(log: Logging, config: AccessoryConfig) {
     this.log = log;
@@ -53,7 +50,7 @@ class EufyRoboVacAccessory implements AccessoryPlugin {
 
   async handleGetActive(callback: CharacteristicGetCallback) {
     this.log.warn('handleGetActive called');
-    callback(null, hap.Characteristic.Active.INACTIVE);
+    callback(null, this.currentState);
   }
 
   async handleSetActive(value: CharacteristicValue, callback: CharacteristicSetCallback) {
@@ -78,11 +75,13 @@ class EufyRoboVacAccessory implements AccessoryPlugin {
         device.set({ dps: 5, set: 'auto' }).catch(() => {});
         device.set({ dps: 122, set: 'Continue' }).catch(() => {});
         this.log.warn('✅ Start sequence sent');
+        this.currentState = true;
       } else {
         this.log.warn('🏠 Sending stop and dock...');
         device.set({ dps: 2, set: false }).catch(() => {});
         device.set({ dps: 101, set: true }).catch(() => {});
         this.log.warn('✅ Dock command sent');
+        this.currentState = false;
       }
 
       setTimeout(() => device.disconnect(), 5000);
