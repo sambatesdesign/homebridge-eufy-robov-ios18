@@ -10,7 +10,6 @@ import {
   CharacteristicGetCallback,
 } from 'homebridge';
 import TuyAPI from 'tuyapi';
-import { startPolling } from './poller';
 
 let hap: HAP;
 
@@ -25,7 +24,7 @@ class EufyRoboVacAccessory implements AccessoryPlugin {
   private readonly config: { id: string; key: string; ip?: string };
   private readonly service: Service;
   private readonly informationService: Service;
-  private currentState: boolean = false; // 👈 store current cleaning state
+  private currentState: boolean = false;
 
   constructor(log: Logging, config: AccessoryConfig) {
     this.log = log;
@@ -47,24 +46,11 @@ class EufyRoboVacAccessory implements AccessoryPlugin {
       .setCharacteristic(hap.Characteristic.Model, 'RoboVac');
 
     this.log.info(`${this.name} accessory created.`);
-
-    // ✅ Start polling and sync internal state
-    startPolling(
-      this.config,
-      this.log,
-      (newState: boolean) => {
-        this.log.warn(`🔁 Updating switch state to: ${newState}`);
-        this.service.updateCharacteristic(hap.Characteristic.On, newState);
-      },
-      (state: boolean) => {
-        this.currentState = state;
-      }
-    );
   }
 
   async handleGetActive(callback: CharacteristicGetCallback) {
     this.log.warn('handleGetActive called');
-    callback(null, this.currentState); // ✅ return real state
+    callback(null, this.currentState);
   }
 
   async handleSetActive(value: CharacteristicValue, callback: CharacteristicSetCallback) {
@@ -89,11 +75,13 @@ class EufyRoboVacAccessory implements AccessoryPlugin {
         device.set({ dps: 5, set: 'auto' }).catch(() => {});
         device.set({ dps: 122, set: 'Continue' }).catch(() => {});
         this.log.warn('✅ Start sequence sent');
+        this.currentState = true;
       } else {
         this.log.warn('🏠 Sending stop and dock...');
         device.set({ dps: 2, set: false }).catch(() => {});
         device.set({ dps: 101, set: true }).catch(() => {});
         this.log.warn('✅ Dock command sent');
+        this.currentState = false;
       }
 
       setTimeout(() => device.disconnect(), 5000);
