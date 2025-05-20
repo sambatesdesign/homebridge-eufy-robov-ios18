@@ -49,7 +49,7 @@ class EufyRoboVacAccessory implements AccessoryPlugin {
   }
 
   async handleGetActive(callback: CharacteristicGetCallback) {
-    this.log.warn('handleGetActive called');
+    //this.log.warn('handleGetActive called');
     callback(null, this.currentState);
   }
 
